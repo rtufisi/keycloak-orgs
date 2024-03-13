@@ -212,10 +212,15 @@ public abstract class AbstractOrganizationTest {
 
   protected KeycloakOrgsRealmRepresentation export(Keycloak keycloak) throws IOException {
     Response response =
-        givenSpec(keycloak)
+        given()
+            .baseUri(container.getAuthServerUrl())
+            .basePath("admin/realms/" + REALM + "/partial-export")
+            .contentType("application/json")
+            .auth()
+            .oauth2(keycloak.tokenManager().getAccessTokenString())
             .and()
             .when()
-            .post(String.join("/partial-export"))
+            .post()
             .then()
             .extract()
             .response();
@@ -487,6 +492,14 @@ public abstract class AbstractOrganizationTest {
     return response;
   }
 
+  protected Response getUser(String userId) {
+    Response response = getAdminRootRequest(Optional.empty())
+        .when()
+        .get("/users/" + userId + "?userProfileMetadata=false").andReturn();;
+    assertThat(response.getStatusCode(), Matchers.is(Status.OK.getStatusCode()));
+    return response;
+  }
+
   protected void createOrReplaceUserAttribute(
       Keycloak keycloak, String username, String attributeKey, String attributeValue)
       throws JsonProcessingException {
@@ -495,6 +508,10 @@ public abstract class AbstractOrganizationTest {
     ObjectMapper mapper = new ObjectMapper();
     JsonNode rootNode = mapper.readTree(response.body().asString());
     JsonNode attributeNode = rootNode.get("attributes");
+
+    if (attributeNode == null) {
+      attributeNode = mapper.createObjectNode();
+    }
 
     if (attributeNode.has(attributeKey)) {
       ((ObjectNode) attributeNode).remove(attributeKey);
@@ -509,6 +526,34 @@ public abstract class AbstractOrganizationTest {
 
     response = getRootRequest(Optional.of(keycloak)).body(body).post("account").andReturn();
     assertThat(response.getStatusCode(), Matchers.is(Status.NO_CONTENT.getStatusCode()));
+  }
+
+  protected void createOrReplaceReadOnlyUserAttribute(
+      Keycloak keycloak, String username, String attributeKey, String attributeValue)
+      throws JsonProcessingException {
+    Response response = getUserAccount(keycloak);
+
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode rootNode = mapper.readTree(response.body().asString());
+    JsonNode attributeNode = rootNode.get("attributes");
+
+    if (attributeNode == null) {
+      attributeNode = mapper.createObjectNode();
+    }
+
+    if (attributeNode.has(attributeKey)) {
+      ((ObjectNode) attributeNode).remove(attributeKey);
+    }
+
+    ((ObjectNode) attributeNode)
+        .set(attributeKey, new ObjectMapper().createArrayNode().add(attributeValue));
+
+    ObjectNode body = mapper.createObjectNode();
+    body.put("username", username);
+    body.set("attributes", attributeNode.deepCopy());
+
+    response = getRootRequest(Optional.of(keycloak)).body(body).post("account").andReturn();
+    assertThat(response.getStatusCode(), Matchers.is(Status.BAD_REQUEST.getStatusCode()));
   }
 
   private String getClientScopeId(String clientScopeName) throws JsonProcessingException {
