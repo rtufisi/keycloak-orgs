@@ -183,6 +183,12 @@
     </dependency>
     <dependency>
       <groupId>org.keycloak</groupId>
+      <artifactId>keycloak-model-storage-services</artifactId>
+      <version>${keycloak.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.keycloak</groupId>
       <artifactId>keycloak-saml-core-public</artifactId>
       <version>${keycloak.version}</version>
       <scope>provided</scope>

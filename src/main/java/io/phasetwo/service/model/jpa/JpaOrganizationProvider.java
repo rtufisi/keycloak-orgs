@@ -51,14 +51,16 @@ public class JpaOrganizationProvider implements OrganizationProvider {
     e.setId(KeycloakModelUtils.generateId());
     e.setRealmId(realm.getId());
     e.setName(name);
-    e.setCreatedBy(createdBy.getId());
+    if (createdBy != null) {//CLI Import constraint
+      e.setCreatedBy(createdBy.getId());
+    }
     em.persist(e);
     em.flush();
     OrganizationModel org = new OrganizationAdapter(session, realm, em, e);
     session.getKeycloakSessionFactory().publish(orgCreationEvent(realm, org));
 
     // creator if admin, but not a service account
-    if (admin && createdBy.getServiceAccountClientLink() == null) {
+    if (admin && (createdBy != null && createdBy.getServiceAccountClientLink() == null)) {
       org.grantMembership(createdBy);
       for (String role : OrganizationAdminAuth.DEFAULT_ORG_ROLES) {
         org.getRoleByName(role).grantRole(createdBy);
