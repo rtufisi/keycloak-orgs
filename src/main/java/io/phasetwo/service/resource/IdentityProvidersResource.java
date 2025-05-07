@@ -30,7 +30,7 @@ public class IdentityProvidersResource extends OrganizationAdminResource {
   private final OrganizationModel organization;
 
   public IdentityProvidersResource(
-      OrganizationAdminResource parent, OrganizationModel organization) {
+          OrganizationAdminResource parent, OrganizationModel organization) {
     super(parent);
     this.organization = organization;
   }
@@ -58,11 +58,8 @@ public class IdentityProvidersResource extends OrganizationAdminResource {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public Stream<IdentityProviderRepresentation> getIdentityProviders() {
-    return session
-        .identityProviders()
-        .getAllStream()
+    return orgs.getIdentityProviders(realm, organization)
         .filter(provider -> canViewIdp())
-        .filter(this::idpInOrg)
         .map(
             provider ->
                 StripSecretsUtils.stripSecrets(

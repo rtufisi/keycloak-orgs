@@ -1,5 +1,6 @@
 package io.phasetwo.service.model.jpa;
 
+import static io.phasetwo.service.Orgs.ORG_OWNER_CONFIG_KEY;
 import static org.keycloak.models.jpa.PaginationUtils.paginateQuery;
 import static org.keycloak.utils.StreamsUtil.closing;
 
@@ -17,21 +18,14 @@ import io.phasetwo.service.model.jpa.entity.OrganizationMemberEntity;
 import io.phasetwo.service.resource.OrganizationAdminAuth;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.CriteriaQuery;
-import jakarta.persistence.criteria.Join;
-import jakarta.persistence.criteria.JoinType;
-import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import jakarta.persistence.criteria.*;
+
+import java.util.*;
 import java.util.stream.Stream;
-import org.keycloak.models.KeycloakSession;
-import org.keycloak.models.RealmModel;
-import org.keycloak.models.UserModel;
+
+import org.keycloak.models.*;
+import org.keycloak.models.jpa.entities.IdentityProviderEntity;
+import org.keycloak.models.jpa.entities.IdentityProviderMapperEntity;
 import org.keycloak.models.utils.KeycloakModelUtils;
 
 public class JpaOrganizationProvider implements OrganizationProvider {
@@ -206,6 +200,26 @@ public class JpaOrganizationProvider implements OrganizationProvider {
   }
 
   @Override
+  public Stream<IdentityProviderModel> getIdentityProviders(RealmModel realm, OrganizationModel org) {
+    CriteriaBuilder builder = em.getCriteriaBuilder();
+    CriteriaQuery<IdentityProviderEntity> queryBuilder =
+            builder.createQuery(IdentityProviderEntity.class);
+    Root<IdentityProviderEntity> root = queryBuilder.from(IdentityProviderEntity.class);
+
+    List<Predicate> predicates = new ArrayList<>();
+    predicates.add(builder.equal(root.get("realmId"), realm.getId()));
+
+    MapJoin<IdentityProviderEntity, String, String> configJoin = root.joinMap("config");
+    Predicate configNamePredicate = builder.equal(configJoin.key(), ORG_OWNER_CONFIG_KEY);
+
+    predicates.add(builder.and(configNamePredicate, builder.like(configJoin.value(), "%" + org.getId()+ "%")));
+
+    TypedQuery<IdentityProviderEntity> typedQuery = em.createQuery(queryBuilder.select(root).where(predicates.toArray(Predicate[]::new)));
+    return typedQuery.getResultStream().map(this::toModel);
+  }
+
+
+  @Override
   public void close() {}
 
   public OrganizationModel.OrganizationCreationEvent orgCreationEvent(
@@ -294,5 +308,31 @@ public class JpaOrganizationProvider implements OrganizationProvider {
         root.join("members", JoinType.LEFT);
 
     return builder.equal(membersJoin.get("user").get("id"), member.getId());
+  }
+
+  private IdentityProviderModel toModel(IdentityProviderEntity entity) {
+    if (entity == null) {
+      return null;
+    }
+
+    IdentityProviderModel identityProviderModel = new IdentityProviderModel();
+    identityProviderModel.setProviderId(entity.getProviderId());
+    identityProviderModel.setAlias(entity.getAlias());
+    identityProviderModel.setDisplayName(entity.getDisplayName());
+    identityProviderModel.setInternalId(entity.getInternalId());
+    Map<String, String> config = new HashMap<>(entity.getConfig());
+    identityProviderModel.setConfig(config);
+    identityProviderModel.setEnabled(entity.isEnabled());
+    identityProviderModel.setLinkOnly(entity.isLinkOnly());
+    identityProviderModel.setHideOnLogin(entity.isHideOnLogin());
+    identityProviderModel.setTrustEmail(entity.isTrustEmail());
+    identityProviderModel.setAuthenticateByDefault(entity.isAuthenticateByDefault());
+    identityProviderModel.setFirstBrokerLoginFlowId(entity.getFirstBrokerLoginFlowId());
+    identityProviderModel.setPostBrokerLoginFlowId(entity.getPostBrokerLoginFlowId());
+    identityProviderModel.setOrganizationId(entity.getOrganizationId());
+    identityProviderModel.setStoreToken(entity.isStoreToken());
+    identityProviderModel.setAddReadTokenRoleOnCreate(entity.isAddReadTokenRoleOnCreate());
+
+    return identityProviderModel;
   }
 }

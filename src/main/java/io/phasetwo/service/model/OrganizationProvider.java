@@ -5,6 +5,8 @@ import com.google.common.collect.Maps;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
+
+import org.keycloak.models.IdentityProviderModel;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.provider.Provider;
@@ -37,6 +39,8 @@ public interface OrganizationProvider extends Provider {
   void removeOrganizations(RealmModel realm);
 
   Stream<InvitationModel> getUserInvitationsStream(RealmModel realm, UserModel user);
+
+  Stream<IdentityProviderModel> getIdentityProviders(RealmModel realm, OrganizationModel org);
 
   // deprecated methods
 
