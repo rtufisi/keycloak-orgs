@@ -164,8 +164,6 @@ final class HomeIdpDiscoveryAuthenticator extends AbstractUsernameFormAuthentica
     private String setUserInContext(AuthenticationFlowContext context,
         HomeIdpAuthenticationFlowContext homeIdpAuthenticationFlowContext,
         String username) {
-      context.clearUser();
-
       username = trimToNull(username);
 
         if (username == null) {
@@ -177,6 +175,7 @@ final class HomeIdpDiscoveryAuthenticator extends AbstractUsernameFormAuthentica
         }
 
       if (homeIdpAuthenticationFlowContext.config().isSetUserInContext()) {
+        context.clearUser();
         try {
           UserModel user = KeycloakModelUtils.findUserByNameOrEmail(context.getSession(), context.getRealm(),
               username);
